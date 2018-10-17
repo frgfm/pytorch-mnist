@@ -30,7 +30,7 @@ python main.py 3 --lr 2e-3 --momentum 0.9 --batch_size 4
 ```
 You can choose the number of epochs, the learning rate, the momentum and the batch size for your training.
 
-<p align="center"><img align="center" src="https://github.com/frgfm/pytorch_mnist/blob/master/images/lenet5_traning.gif" width="600" /></p>
+<p align="center"><img align="center" src="https://github.com/frgfm/pytorch_mnist/blob/master/images/lenet5_traning.gif" width="400" /></p>
 
 ## TODO
 - [x] LeNet5 implementation
