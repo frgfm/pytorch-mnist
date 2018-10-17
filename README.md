@@ -24,12 +24,13 @@ Start the visdom server to visualize your training loss:
 python -m visdom.server
 ```
 
-Then just run the following command to start training choosing the number of epochs, the learning rate, the momentum and the batch size:
+Then open another terminal and run the following command to start training:
 ```bash
 python main.py 3 --lr 2e-3 --momentum 0.9 --batch_size 4
 ```
+You can choose the number of epochs, the learning rate, the momentum and the batch size for your training.
 
-<p align="center"><img align="center" src="images/lenet5_training.gif" width="600" /></p>
+<p align="center"><img align="center" src="https://github.com/frgfm/pytorch_mnist/blob/master/images/lenet5_traning.gif" width="600" /></p>
 
 ## TODO
 - [x] LeNet5 implementation
