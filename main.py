@@ -18,8 +18,16 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
 from visdom import Visdom
+import argparse
 
 from architectures.lenet5 import LeNet5
+
+parser = argparse.ArgumentParser()
+parser.add_argument("nb_epoch", help="Enter the number of epochs you wish to train")
+parser.add_argument("--lr", help="Learning rate (default: 2e-3)")
+parser.add_argument("--momentum", "-m", help="SGD Momentum (default: 0.9)")
+parser.add_argument("--batch_size", "-b", help="Batch size (default: 4)")
+args = parser.parse_args()
 
 
 def progress(count, total, status=''):
@@ -31,13 +39,13 @@ def progress(count, total, status=''):
         status (str): status information you want to print out
     """
 
-    bar_len = 40
+    bar_len = 30
     filled_len = int(round(bar_len * count / float(total)))
 
     percents = round(100.0 * count / float(total), 1)
     bar = '=' * (filled_len - 1) + '>' + '-' * (bar_len - filled_len)
 
-    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
+    sys.stdout.write('[%s] %s%s - %s\r' % (bar, percents, '%', status))
     sys.stdout.flush()
 
 
@@ -54,6 +62,8 @@ def main():
     test_set = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
     batch_size = 4
+    if args.batch_size is not None:
+        batch_size = int(args.batch_size)
 
     # Data loader
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
@@ -67,13 +77,20 @@ def main():
 
     # Loss function & optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=2e-3, momentum=0.9)
+    lr = 2e-3
+    if args.lr is not None:
+        lr = float(args.lr)
+    momentum = 0.9
+    if args.momentum is not None:
+        momentum = float(args.momentum)
+    optimizer = optim.SGD(net.parameters(), lr=lr, momentum=momentum)
 
-    def train(net, epoch, checkpoint_freq=1000, checkpoint_folder='checkpoint'):
+    def train(net, epoch, checkpoint_freq=1000, checkpoint_folder='checkpoint', master_bar=None):
 
         net.train()
         for batch_idx, (x, target) in enumerate(train_loader, 0):
             # Work with tensors on GPU
+            # x, target = train_loader[batch_idx]
             x, target = x.cuda(), target.cuda()
 
             # zero the parameter gradients
@@ -86,7 +103,7 @@ def main():
             # Evaluation logging
             if (batch_idx + 1) % 100 == 0 or (batch_idx + 1) == len(train_loader):
                 # Command line status
-                status = '(iteration %s/%s) Training loss: %s' % (batch_idx + 1, nb_epoch_it, loss.item())
+                status = 'Training loss: %s' % loss.item()
                 progress(batch_idx + 1, nb_epoch_it, status)
                 # Visdom plot
                 plot_opts = dict(showlegend=True, legend=['Training loss'],
@@ -111,7 +128,9 @@ def main():
             loss.backward()
             optimizer.step()
 
-    def test(net, epoch):
+        return loss.item()
+
+    def test(net):
 
         net.eval()
         loss = 0
@@ -130,16 +149,14 @@ def main():
         loss /= len(test_loader)
         accuracy = correct / (batch_size * len(test_loader))
 
-        # Evaluation logging
-        # Command line status
-        print('\nValidation - Loss: %s, Accuracy: %s' % (loss, accuracy))
+        return loss, accuracy
 
     # Loop over the entire dataset
-    for epoch in range(3):
-        print('\nEpoch %s' % epoch)
-        train(net, epoch)
-        test(net, epoch)
-
+    for epoch in range(int(args.nb_epoch)):
+        print('\nEpoch %s/%s' % (epoch, int(args.nb_epoch)))
+        training_loss = train(net, epoch)
+        validation_loss, accuracy = test(net)
+        print('Training loss: %s, Validation loss: %s, Accuracy: %s' % (training_loss, validation_loss, accuracy))
 
 if __name__ == '__main__':
     main()
