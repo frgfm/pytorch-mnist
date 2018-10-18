@@ -28,6 +28,7 @@ parser.add_argument("nb_epoch", help="Enter the number of epochs you wish to tra
 parser.add_argument("--lr", help="Learning rate (default: 2e-3)")
 parser.add_argument("--momentum", "-m", help="SGD Momentum (default: 0.9)")
 parser.add_argument("--batch_size", "-b", help="Batch size (default: 4)")
+parser.add_argument("--gpu", help="GPU ID you wish to use (default: 0)")
 args = parser.parse_args()
 
 
@@ -74,6 +75,7 @@ def main():
 
     # Architecture choice
     net = LeNet5()
+    torch.cuda.set_device(int(args.gpu))
     net.cuda()
 
     # Loss function & optimizer
