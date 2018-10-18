@@ -32,7 +32,7 @@ If you happen to perform the training on a remote server, you will need to first
 sudo ufw allow 8097
 python -m visdom.server
 ```
-Then locally, navigate to 'http://<REMOTE_SERVER_IP>:8097' for live training results.
+Then locally, navigate to `http://<REMOTE_SERVER_IP>:8097` for live training results.
 
 
 ### Training your model

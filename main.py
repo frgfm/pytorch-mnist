@@ -88,12 +88,17 @@ def main():
         momentum = float(args.momentum)
     optimizer = optim.SGD(net.parameters(), lr=lr, momentum=momentum)
 
-    def train(net, epoch, checkpoint_freq=1000, checkpoint_folder='checkpoint', master_bar=None):
+    # Visdom
+    plot_opts = dict(showlegend=True,
+                     width=600, height=600, ytype='log',
+                     title='MNIST Training (%s)' % net.name(),
+                     xlabel='Batch index', ylabel='Loss')
+
+    def train(net, it_idx=None, checkpoint_freq=1000, checkpoint_folder='checkpoint'):
 
         net.train()
         for batch_idx, (x, target) in enumerate(train_loader, 0):
             # Work with tensors on GPU
-            # x, target = train_loader[batch_idx]
             x, target = x.cuda(), target.cuda()
 
             # zero the parameter gradients
@@ -109,23 +114,19 @@ def main():
                 status = 'Training loss: %s' % loss.item()
                 progress(batch_idx + 1, nb_epoch_it, status)
                 # Visdom plot
-                plot_opts = dict(showlegend=True, legend=['Training loss'],
-                                 width=600, height=600, ytype='log',
-                                 title='MNIST Training (%s)' % net.name(),
-                                 xlabel='Batch index', ylabel='Loss')
                 if 'train_win' not in globals():
                     global train_win
-                    train_win = vis.line(X=[(epoch * nb_epoch_it) + batch_idx + 1], Y=[loss.item()],
-                                         opts=plot_opts)
+                    train_win = vis.line(X=[it_idx + batch_idx], Y=[loss.item()],
+                                         opts=plot_opts, name='Training loss')
                 else:
-                    vis.line(X=[(epoch * nb_epoch_it) + batch_idx + 1], Y=[loss.item()],
-                             win=train_win, opts=plot_opts,
+                    vis.line(X=[it_idx + batch_idx], Y=[loss.item()],
+                             win=train_win, opts=plot_opts, name='Training loss',
                              update='append')
             # Checkpoint
             if (batch_idx + 1) % checkpoint_freq == 0 or (batch_idx + 1) == len(train_loader):
                 if not os.path.exists(checkpoint_folder):
                     os.makedirs(checkpoint_folder)
-                save_path = os.path.join(checkpoint_folder, net.name() + '_checkpoint_iter%s.pth' % ((epoch * nb_epoch_it) + batch_idx + 1))
+                save_path = os.path.join(checkpoint_folder, net.name() + '_checkpoint_iter%s.pth' % (it_idx + batch_idx))
                 torch.save(net.state_dict(), save_path)
 
             loss.backward()
@@ -150,16 +151,29 @@ def main():
                 pred = outputs.max(1, keepdim=True)[1]
                 correct += pred.eq(target.view_as(pred)).sum().item()
         loss /= len(test_loader)
-        accuracy = correct / (batch_size * len(test_loader))
+        accuracy = correct / float(batch_size * len(test_loader))
 
         return loss, accuracy
 
+    # Get initial validation loss
+    validation_loss, accuracy = test(net)
+
     # Loop over the entire dataset
     for epoch in range(int(args.nb_epoch)):
-        print('\nEpoch %s/%s' % (epoch, int(args.nb_epoch)))
-        training_loss = train(net, epoch)
+        print('\nEpoch %s/%s' % (epoch + 1, int(args.nb_epoch)))
+        # Training
+        training_loss = train(net, it_idx=epoch * nb_epoch_it + 1)
+        # Validation
+        if epoch == 0:
+            vis.line(X=[0], Y=[validation_loss],
+                     win=train_win, opts=plot_opts, name='Validation loss',
+                     update='append')
         validation_loss, accuracy = test(net)
+        vis.line(X=[(epoch + 1) * nb_epoch_it], Y=[validation_loss],
+                 win=train_win, opts=plot_opts, name='Validation loss',
+                 update='append')
         print('Training loss: %s, Validation loss: %s, Accuracy: %s' % (training_loss, validation_loss, accuracy))
+
 
 if __name__ == '__main__':
     main()
