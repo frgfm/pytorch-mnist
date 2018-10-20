@@ -38,15 +38,14 @@ Then locally, navigate to `http://<REMOTE_SERVER_IP>:8097` for live training res
 ### Training your model
 Then open another terminal and run the following command to start training:
 ```bash
-python main.py 3 --lr 2e-3 --momentum 0.9 --batch_size 4 --gpu 0
+python main.py 10 --lr 5e-5 --momentum 0.9 --weight_decay 5e-4 -n --batch_size 8 --gpu 0
 ```
-You can choose the number of epochs, the learning rate, the momentum, the batch size as well as the GPU to use for your training.
+You can choose the number of epochs, the learning rate, the momentum, the weight decay, whether you wish to use nesterov momentum, the batch size as well as the GPU to use for your training.
 
 <p align="center"><img align="center" src="https://github.com/frgfm/pytorch_mnist/blob/master/images/lenet5_traning.gif" width="400" /></p>
 
 ## TODO
 - [x] LeNet5 implementation
+- [ ] Resuming from checkpoint
 - [ ] Different MLP combinations (+ regularization)
 - [ ] Stop criterion
-- [ ] Advanced Visdom visualization
-- [ ] Resuming from checkpoint

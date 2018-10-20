@@ -24,11 +24,13 @@ import argparse
 from architectures.lenet5 import LeNet5
 
 parser = argparse.ArgumentParser()
-parser.add_argument("nb_epoch", help="Enter the number of epochs you wish to train")
-parser.add_argument("--lr", help="Learning rate (default: 2e-3)")
-parser.add_argument("--momentum", "-m", help="SGD Momentum (default: 0.9)")
-parser.add_argument("--batch_size", "-b", help="Batch size (default: 4)")
-parser.add_argument("--gpu", help="GPU ID you wish to use (default: 0)")
+parser.add_argument("nb_epoch", type=int, help="Enter the number of epochs you wish to train")
+parser.add_argument("--lr", type=float, default=2e-4, help="Learning rate (default: 2e-4)")
+parser.add_argument("--momentum", "-m", type=float, default=0., help="SGD Momentum (default: 0)")
+parser.add_argument("--weight_decay", type=float, default=0., help="Weight decay (default: 0)")
+parser.add_argument("--nesterov", "-n", action='store_true', help="Nesterov momentum (default: False)")
+parser.add_argument("--batch_size", "-b", type=int, default=4, help="Batch size (default: 4)")
+parser.add_argument("--gpu", type=int, default=0, help="GPU ID you wish to use (default: 0)")
 args = parser.parse_args()
 
 
@@ -80,17 +82,12 @@ def main():
 
     # Loss function & optimizer
     criterion = nn.CrossEntropyLoss()
-    lr = 2e-3
-    if args.lr is not None:
-        lr = float(args.lr)
-    momentum = 0.9
-    if args.momentum is not None:
-        momentum = float(args.momentum)
-    optimizer = optim.SGD(net.parameters(), lr=lr, momentum=momentum)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr,
+                          momentum=args.momentum, weight_decay=args.weight_decay, nesterov=args.nesterov)
 
     # Visdom
     plot_opts = dict(showlegend=True,
-                     width=600, height=600, ytype='log',
+                     width=900, height=600, ytype='log',
                      title='MNIST Training (%s)' % net.name(),
                      xlabel='Batch index', ylabel='Loss')
 
@@ -166,11 +163,11 @@ def main():
         # Validation
         if epoch == 0:
             vis.line(X=[0], Y=[validation_loss],
-                     win=train_win, opts=plot_opts, name='Validation loss',
+                     win=train_win, opts=dict(markers=True, showlegend=True), name='Validation loss',
                      update='append')
         validation_loss, accuracy = test(net)
         vis.line(X=[(epoch + 1) * nb_epoch_it], Y=[validation_loss],
-                 win=train_win, opts=plot_opts, name='Validation loss',
+                 win=train_win, opts=dict(markers=True, showlegend=True), name='Validation loss',
                  update='append')
         print('Training loss: %s, Validation loss: %s, Accuracy: %s' % (training_loss, validation_loss, accuracy))
 
