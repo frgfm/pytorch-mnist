@@ -20,8 +20,11 @@ import torch.nn as nn
 import torch.optim as optim
 from visdom import Visdom
 import argparse
+import shutil
 
 from architectures.lenet5 import LeNet5
+
+PTH_CHECKPOINT_FOLDER = 'checkpoint'
 
 parser = argparse.ArgumentParser()
 parser.add_argument("nb_epoch", type=int, help="Enter the number of epochs you wish to train")
@@ -31,6 +34,9 @@ parser.add_argument("--weight_decay", type=float, default=0., help="Weight decay
 parser.add_argument("--nesterov", "-n", action='store_true', help="Nesterov momentum (default: False)")
 parser.add_argument("--batch_size", "-b", type=int, default=4, help="Batch size (default: 4)")
 parser.add_argument("--gpu", type=int, default=0, help="GPU ID you wish to use (default: 0)")
+parser.add_argument("--start_epoch", type=int, default=0, help="manual epoch number (default: 0)")
+parser.add_argument("--workers", type=int, default=2, help="Number of workers used for data loading (default: 2)")
+parser.add_argument("--resume", type=str, default=None, help="Checkpoint file to resume (default: None)")
 args = parser.parse_args()
 
 
@@ -53,6 +59,13 @@ def progress(count, total, status=''):
     sys.stdout.flush()
 
 
+def save_checkpoint(state, is_best, filename='checkpoint'):
+    torch.save(state, os.path.join(PTH_CHECKPOINT_FOLDER, filename + '.pth.tar'))
+    if is_best:
+        shutil.copyfile(os.path.join(PTH_CHECKPOINT_FOLDER, filename + '.pth.tar'),
+                        os.path.join(PTH_CHECKPOINT_FOLDER, filename + '_best.pth.tar'))
+
+
 def main():
 
     # Connect to local Visdom server
@@ -70,10 +83,14 @@ def main():
         batch_size = int(args.batch_size)
 
     # Data loader
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=2)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=args.workers)
 
     nb_epoch_it = len(train_loader)
+
+    # Net
+    if not os.path.exists(PTH_CHECKPOINT_FOLDER):
+        os.makedirs(PTH_CHECKPOINT_FOLDER)
 
     # Architecture choice
     net = LeNet5()
@@ -85,13 +102,24 @@ def main():
     optimizer = optim.SGD(net.parameters(), lr=args.lr,
                           momentum=args.momentum, weight_decay=args.weight_decay, nesterov=args.nesterov)
 
+    # Resuming
+    if args.resume:
+        if os.path.exists(os.path.join(PTH_CHECKPOINT_FOLDER, args.resume)):
+            checkpoint = torch.load(os.path.join(PTH_CHECKPOINT_FOLDER, args.resume))
+            args.start_epoch = checkpoint['epoch']
+            net.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            print('Resuming checkpoint %s (epoch %s)' % (args.resume, args.start_epoch))
+        else:
+            raise ValueError('Unable to locate checkpoint %s' % args.resume)
+
     # Visdom
     plot_opts = dict(showlegend=True,
                      width=900, height=600, ytype='log',
                      title='MNIST Training (%s)' % net.name(),
                      xlabel='Batch index', ylabel='Loss')
 
-    def train(net, it_idx=None, checkpoint_freq=1000, checkpoint_folder='checkpoint'):
+    def train(net, it_idx=None, checkpoint_freq=1000):
 
         net.train()
         for batch_idx, (x, target) in enumerate(train_loader, 0):
@@ -119,12 +147,11 @@ def main():
                     vis.line(X=[it_idx + batch_idx], Y=[loss.item()],
                              win=train_win, opts=plot_opts, name='Training loss',
                              update='append')
-            # Checkpoint
-            if (batch_idx + 1) % checkpoint_freq == 0 or (batch_idx + 1) == len(train_loader):
-                if not os.path.exists(checkpoint_folder):
-                    os.makedirs(checkpoint_folder)
-                save_path = os.path.join(checkpoint_folder, net.name() + '_checkpoint_iter%s.pth' % (it_idx + batch_idx))
-                torch.save(net.state_dict(), save_path)
+            # # Checkpoint
+            # if (batch_idx + 1) % checkpoint_freq == 0 or (batch_idx + 1) == len(train_loader):
+            #     save_path = os.path.join(PTH_CHECKPOINT_FOLDER, net.name() + '_checkpoint_iter%s.pth' % (it_idx + batch_idx))
+            #     torch.save(dict(epoch=, arch=net.name(), state_dict=net.state_dict(), 'optimizer': optimizer.state_dict()),
+            #                save_path)
 
             loss.backward()
             optimizer.step()
@@ -154,22 +181,30 @@ def main():
 
     # Get initial validation loss
     validation_loss, accuracy = test(net)
+    best_acc1 = accuracy
+    is_best = False
 
     # Loop over the entire dataset
     for epoch in range(int(args.nb_epoch)):
-        print('\nEpoch %s/%s' % (epoch + 1, int(args.nb_epoch)))
+        print('\nEpoch %s/%s' % (args.start_epoch + epoch + 1, args.start_epoch + int(args.nb_epoch)))
         # Training
-        training_loss = train(net, it_idx=epoch * nb_epoch_it + 1)
+        training_loss = train(net, it_idx=(args.start_epoch + epoch) * nb_epoch_it + 1)
         # Validation
         if epoch == 0:
-            vis.line(X=[0], Y=[validation_loss],
+            vis.line(X=[args.start_epoch * nb_epoch_it], Y=[validation_loss],
                      win=train_win, opts=dict(markers=True, showlegend=True), name='Validation loss',
                      update='append')
         validation_loss, accuracy = test(net)
-        vis.line(X=[(epoch + 1) * nb_epoch_it], Y=[validation_loss],
+        vis.line(X=[(args.start_epoch + epoch + 1) * nb_epoch_it], Y=[validation_loss],
                  win=train_win, opts=dict(markers=True, showlegend=True), name='Validation loss',
                  update='append')
         print('Training loss: %s, Validation loss: %s, Accuracy: %s' % (training_loss, validation_loss, accuracy))
+        # Checkpoint
+        if accuracy > best_acc1:
+            best_acc1 = accuracy
+            is_best = True
+        save_checkpoint(dict(epoch=args.start_epoch + epoch + 1, arch=net.name(), state_dict=net.state_dict(), optimizer=optimizer.state_dict()),
+                        is_best, '%s_checkpoint' % net.name())
 
 
 if __name__ == '__main__':

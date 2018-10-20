@@ -44,6 +44,11 @@ You can choose the number of epochs, the learning rate, the momentum, the weight
 
 <p align="center"><img align="center" src="https://github.com/frgfm/pytorch_mnist/blob/master/images/lenet5_training.gif" width="400" /></p>
 
+If you wish to resume a training, use the --resume flag
+```bash
+python main.py 10 --lr 5e-5 --momentum 0.9 --weight_decay 5e-4 -n --batch_size 8 --gpu 0 --resume Lenet5_checkpoint_best.pth.tar
+```
+
 ## TODO
 - [x] LeNet5 implementation
 - [ ] Resuming from checkpoint
