@@ -2,22 +2,16 @@
 This repository is an ongoing implementation of different basic DL architectures for Image classification.
 The implementation is in PyTorch with Visdom support for visualization.
 
-## Requirements
-The torch, torchvision and visdom packages are required to properly use the repo.
-Tested on the following version:
-```python
-import sys
-import torch, torchvision, visdom
-print('Python %s' % '.'.join(map(str, sys.version_info[:3])))
-print('PyTorch %s, Torchvision %s, Visdom %s' % (torch.__version__, torchvision.__version__, visdom.__version__))
+## Installation
+This project was only developed in Python 3.6 using PyTorch 0.4.1. If you happen to be running a superior version, depending on your edits, you might encounter issue during runtime (breaking changes between Pytorch version).
 ```
-```console
-Python 3.6.6
-PyTorch 0.4.1, Torchvision 0.2.1, Visdom 0.1.8.5
+git clone https://github.com/frgfm/pytorch-mnist.git
+cd pytorch-mnist
+pip install requirements.txt
 ```
 
+## Usage
 
-## How to use it
 Add your architectures (compatible with MNIST 28x28 images) in the architectures folder, and change the net definition accordingly.
 
 ### Running the visdom server
@@ -42,9 +36,12 @@ python main.py 10 --lr 5e-5 --momentum 0.9 --weight_decay 5e-4 -n --batch_size 8
 ```
 You can choose the number of epochs, the learning rate, the momentum, the weight decay, whether you wish to use nesterov momentum, the batch size as well as the GPU to use for your training.
 
-<p align="center"><img align="center" src="https://github.com/frgfm/pytorch_mnist/blob/master/images/lenet5_training.gif" width="400" /></p>
+![visdom_loss](static/images/lenet5_training.gif)
+
+
 
 If you wish to resume a training, use the --resume flag
+
 ```bash
 python main.py 10 --lr 5e-5 --momentum 0.9 --weight_decay 5e-4 -n --batch_size 8 --gpu 0 --resume Lenet5_checkpoint_best.pth.tar
 ```
